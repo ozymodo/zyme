@@ -3,7 +3,7 @@
 import { useSceneTransition } from "@/components/scene/scene-context";
 
 // Matches the Games page's own accent (GamesContent/MicrobytePlayer).
-const ACCENT = "52, 199, 110";
+const ACCENT = "48, 210, 120";
 
 export default function FreeroamButton() {
   const { enterFreeroam } = useSceneTransition();

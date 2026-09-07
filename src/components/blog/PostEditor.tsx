@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import type { FeedPost } from "@/components/blog/BlogContent";
 
-const ACCENT = "56, 145, 255";
+const ACCENT = "40, 128, 255";
 
 function autoGrow(el: HTMLTextAreaElement | null) {
   if (!el) return;
@@ -77,7 +77,7 @@ export default function PostEditor({
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex cursor-auto items-start justify-center overflow-y-auto bg-[#040705]/80 px-4 py-10 backdrop-blur-sm sm:py-16"
+      className="fixed inset-0 z-50 flex cursor-auto items-start justify-center overflow-y-auto overscroll-contain bg-[#020403]/85 px-4 py-10 backdrop-blur-sm sm:py-16"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -86,7 +86,7 @@ export default function PostEditor({
       <motion.div
         layoutId={layoutId}
         onClick={(e) => e.stopPropagation()}
-        className="relative flex w-full max-w-2xl flex-col rounded-3xl border border-white/10 bg-[#0a120e]/95 p-8 shadow-[0_20px_80px_rgba(0,0,0,0.5)] sm:p-12"
+        className="relative flex w-full max-w-2xl flex-col rounded-3xl border border-white/10 bg-[#060d09]/95 p-8 shadow-[0_20px_80px_rgba(0,0,0,0.5)] sm:p-12"
       >
         <button
           onClick={handleCancel}

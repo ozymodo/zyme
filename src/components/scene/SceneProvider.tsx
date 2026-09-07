@@ -6,11 +6,13 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import * as THREE from "three";
 import FreeroamJoystick from "@/components/scene/FreeroamJoystick";
 import HomeButton from "@/components/scene/HomeButton";
+import { shuffleDefaultWordmark } from "@/lib/wordmark";
 import UtilityButton from "@/components/scene/UtilityButton";
 import { SceneContext, type SceneContextValue } from "@/components/scene/scene-context";
 import {
   awardGateXp,
   awardNavigationXp,
+  awardClickXp,
   awardParticleCatchXp,
   getAccountSnapshot,
   getServerAccountSnapshot,
@@ -49,7 +51,11 @@ const BURST_FADE_IN = 0.5;
 const BURST_FADE_OUT = 2.2;
 const BURST_PEAK_ACTIVE = 0.42;
 
-const DEFAULT_ACCENT = "120, 200, 140";
+// The site's one green: the fallback accent for anything without its own
+// `data-accent`, and the same value Games/Microbyte/Discord/Freeroam and
+// the Settings "Forest" preset use - one green everywhere rather than a
+// vivid one for Games and a paler one for everything else.
+const DEFAULT_ACCENT = "48, 210, 120";
 
 // Resting camera depth per top-level route. Clicking a nav element flies the
 // camera from its current depth to the target route's depth "through" the
@@ -117,7 +123,7 @@ const FREEROAM_ZOOM_FOV_KICK = 16; // extra fov while zooming, same "warp" langu
 
 // One gate at a time: fly through it to earn XP, and it relocates somewhere
 // new in the field, so finding the next one takes actually looking around.
-const GATE_COLOR = "255, 205, 90";
+const GATE_COLOR = "255, 198, 55";
 const GATE_RADIUS = 28;
 const GATE_TUBE = 4;
 const GATE_TRIGGER_RADIUS = 34; // world units - how close the camera must get to count as "through"
@@ -137,8 +143,18 @@ const PREY_FLEE_REACH = 170; // px - cursor proximity that triggers fleeing
 const PREY_FLEE_ACCEL = 1100; // px/sec^2 while fleeing
 const PREY_MAX_SPEED = 460; // px/sec
 const PREY_DRAG = 2.2; // 1/sec - velocity decay so it settles instead of coasting forever
-const PREY_EDGE_MARGIN = 90; // px - keeps it off the very edge on the sides/bottom
-const PREY_TOP_MARGIN = 200; // px - taller top margin so it doesn't spawn under the hero wordmark
+const PREY_EDGE_MARGIN = 28; // px - the sides/bottom of the "home" zone it spawns into and returns to
+const PREY_TOP_MARGIN = 130; // px - taller top margin so it doesn't spawn under the hero wordmark
+// It is free to be chased clear out of the frame; it just isn't allowed to
+// wander off forever. Off-screen it keeps flying under the exact same
+// physics (no teleporting, no snapping to an edge), bounces off a hard
+// bound not far past the viewport, and after a short beat turns around and
+// comes back in.
+const PREY_OFFSCREEN_LIMIT = 300; // px past the viewport edge - the hard wall it can never cross
+const PREY_RETURN_DELAY_MIN = 1; // seconds fully out of frame before it heads back
+const PREY_RETURN_DELAY_MAX = 2; // seconds
+const PREY_RETURN_ACCEL = 1400; // px/sec^2 - a decisive turnaround, not a lazy drift back
+const PREY_RETURN_MAX_SPEED = 700; // px/sec - allowed to outrun its normal top speed on the way in
 const PREY_SPAWN_MIN_DELAY = 4; // seconds after a catch (or mount) before the next one appears
 const PREY_SPAWN_MAX_DELAY = 9; // seconds
 const PREY_BURST_COUNT = 90; // bigger than a normal entity burst (28) - a proper little explosion
@@ -153,12 +169,12 @@ const PREY_ENTRY_OFFSCREEN_MARGIN = 140; // px beyond whichever edge it starts f
 // node-color tint.
 const CATCH_SPARK_COUNT = 40;
 const CATCH_SPARK_PALETTE = [
-  "255, 210, 80", // gold
-  "255, 110, 180", // pink
-  "120, 220, 255", // cyan
-  "180, 130, 255", // violet
-  "140, 255, 170", // mint
-  "255, 150, 90", // orange
+  "255, 205, 50", // gold
+  "255, 80, 170", // pink
+  "80, 215, 255", // cyan
+  "160, 105, 255", // violet
+  "100, 255, 150", // mint
+  "255, 135, 60", // orange
 ];
 
 // A background-relative contrast color for the prey's core, so it reads
@@ -313,6 +329,20 @@ export default function SceneProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     pathnameRef.current = pathname;
     awardNavigationXp();
+  }, [pathname]);
+
+  // Settings > Shuffle each visit: opening any page other than the homepage
+  // draws a new random word, so the home button you land next to already
+  // spells it and tapping it carries that word back to the hero title -
+  // then the next page you open rolls the next one. Skipped on the first
+  // render (the load's own random pick is the first word) and on arriving
+  // at "/", so the word you were just handed is the one you actually see.
+  const shuffledForPath = useRef(pathname);
+  useEffect(() => {
+    if (shuffledForPath.current === pathname) return;
+    shuffledForPath.current = pathname;
+    if (pathname === "/") return;
+    if (getSettingsSnapshot().shuffleWordmark) shuffleDefaultWordmark();
   }, [pathname]);
 
   useEffect(() => {
@@ -601,13 +631,34 @@ export default function SceneProvider({ children }: { children: React.ReactNode 
     // is true only during its initial dash in from off-screen - once that
     // lands it inside the safe zone, normal flee/bounce behavior takes over
     // and it stays on-screen until caught.
-    type Prey = { x: number; y: number; vx: number; vy: number; entering: boolean };
+    // `offscreenSince`/`returnDelay`/`returnTarget` drive the out-of-frame
+    // excursion: it keeps its real position and velocity the whole time it's
+    // outside the viewport, and only once it's been gone longer than
+    // `returnDelay` does it start thrusting back toward `returnTarget`.
+    type Prey = {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      entering: boolean;
+      offscreenSince: number | null;
+      returnDelay: number;
+      returnTarget: { x: number; y: number } | null;
+    };
     let prey: Prey | null = null;
     let nextPreySpawnAt = PREY_SPAWN_MIN_DELAY + Math.random() * (PREY_SPAWN_MAX_DELAY - PREY_SPAWN_MIN_DELAY);
 
+    // A random point inside the home zone - where it dashes to on arrival,
+    // and where it aims when coming back in from off-screen.
+    const preyHomePoint = () => ({
+      x: PREY_EDGE_MARGIN + Math.random() * Math.max(1, width - PREY_EDGE_MARGIN * 2),
+      y: PREY_TOP_MARGIN + Math.random() * Math.max(1, height - PREY_TOP_MARGIN - PREY_EDGE_MARGIN),
+    });
+
+    const randomReturnDelay = () => PREY_RETURN_DELAY_MIN + Math.random() * (PREY_RETURN_DELAY_MAX - PREY_RETURN_DELAY_MIN);
+
     const spawnPrey = () => {
-      const targetX = PREY_EDGE_MARGIN + Math.random() * (width - PREY_EDGE_MARGIN * 2);
-      const targetY = PREY_TOP_MARGIN + Math.random() * (height - PREY_TOP_MARGIN - PREY_EDGE_MARGIN);
+      const { x: targetX, y: targetY } = preyHomePoint();
 
       // Starts just off one random edge of the screen and dashes toward a
       // point inside the safe zone, so it reads as arriving from outside
@@ -638,6 +689,9 @@ export default function SceneProvider({ children }: { children: React.ReactNode 
         vx: (dx / dist) * PREY_ENTRY_SPEED,
         vy: (dy / dist) * PREY_ENTRY_SPEED,
         entering: true,
+        offscreenSince: null,
+        returnDelay: randomReturnDelay(),
+        returnTarget: null,
       };
     };
 
@@ -997,6 +1051,17 @@ export default function SceneProvider({ children }: { children: React.ReactNode 
       if (e.pointerId !== lookTouchId) return;
       resetLookTouch();
     };
+    // Every tap/click on the site earns XP, wherever it lands - a link, a
+    // button, an overlay, the empty scene. Registered separately from
+    // onPointerDown below (which is the scene's own click handling, and
+    // returns early down several paths) and in the capture phase, so a
+    // handler that calls stopPropagation - the freeroam joystick does -
+    // can't swallow the tap before it counts.
+    const onAnyPointerDown = () => {
+      awardClickXp();
+    };
+    window.addEventListener("pointerdown", onAnyPointerDown, { capture: true });
+
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerleave", onPointerLeave);
     window.addEventListener("pointerdown", onPointerDown);
@@ -1364,33 +1429,70 @@ export default function SceneProvider({ children }: { children: React.ReactNode 
                 prey.vy += (dy / dist) * PREY_FLEE_ACCEL * strength * dt;
               }
             }
+            // Fully outside the viewport (core included, so it only counts
+            // once it's genuinely gone rather than half-clipped at an edge).
+            const gone =
+              prey.x < -PREY_CORE_RADIUS ||
+              prey.x > width + PREY_CORE_RADIUS ||
+              prey.y < -PREY_CORE_RADIUS ||
+              prey.y > height + PREY_CORE_RADIUS;
+            if (gone) {
+              if (prey.offscreenSince === null) {
+                prey.offscreenSince = t;
+                prey.returnDelay = randomReturnDelay();
+                prey.returnTarget = preyHomePoint();
+              }
+            } else {
+              prey.offscreenSince = null;
+              prey.returnTarget = null;
+            }
+
+            // Once it's been out of frame past its delay, it thrusts back
+            // toward a point in the home zone - real acceleration applied to
+            // the velocity it already had, so it visibly arcs around and
+            // comes back rather than reappearing from nowhere.
+            const returning = prey.offscreenSince !== null && t - prey.offscreenSince > prey.returnDelay;
+            if (returning && prey.returnTarget) {
+              const rx = prey.returnTarget.x - prey.x;
+              const ry = prey.returnTarget.y - prey.y;
+              const rd = Math.hypot(rx, ry) || 1;
+              prey.vx += (rx / rd) * PREY_RETURN_ACCEL * dt;
+              prey.vy += (ry / rd) * PREY_RETURN_ACCEL * dt;
+            }
+
             const dragFactor = Math.exp(-PREY_DRAG * dt);
             prey.vx *= dragFactor;
             prey.vy *= dragFactor;
+            const maxSpeed = returning ? PREY_RETURN_MAX_SPEED : PREY_MAX_SPEED;
             const speed = Math.hypot(prey.vx, prey.vy);
-            if (speed > PREY_MAX_SPEED) {
-              prey.vx = (prey.vx / speed) * PREY_MAX_SPEED;
-              prey.vy = (prey.vy / speed) * PREY_MAX_SPEED;
+            if (speed > maxSpeed) {
+              prey.vx = (prey.vx / speed) * maxSpeed;
+              prey.vy = (prey.vy / speed) * maxSpeed;
             }
             prey.x += prey.vx * dt;
             prey.y += prey.vy * dt;
 
-            // Bounces off its safe-zone bounds rather than hiding behind the
-            // wordmark or off the edge of the screen.
-            if (prey.x < PREY_EDGE_MARGIN) {
-              prey.x = PREY_EDGE_MARGIN;
+            // The only hard bounds left are well outside the frame - it can
+            // be chased off any edge, it just can't disappear into the
+            // distance and leave the game with nothing to chase.
+            const minX = -PREY_OFFSCREEN_LIMIT;
+            const maxX = width + PREY_OFFSCREEN_LIMIT;
+            const minY = -PREY_OFFSCREEN_LIMIT;
+            const maxY = height + PREY_OFFSCREEN_LIMIT;
+            if (prey.x < minX) {
+              prey.x = minX;
               prey.vx = Math.abs(prey.vx);
             }
-            if (prey.x > width - PREY_EDGE_MARGIN) {
-              prey.x = width - PREY_EDGE_MARGIN;
+            if (prey.x > maxX) {
+              prey.x = maxX;
               prey.vx = -Math.abs(prey.vx);
             }
-            if (prey.y < PREY_TOP_MARGIN) {
-              prey.y = PREY_TOP_MARGIN;
+            if (prey.y < minY) {
+              prey.y = minY;
               prey.vy = Math.abs(prey.vy);
             }
-            if (prey.y > height - PREY_EDGE_MARGIN) {
-              prey.y = height - PREY_EDGE_MARGIN;
+            if (prey.y > maxY) {
+              prey.y = maxY;
               prey.vy = -Math.abs(prey.vy);
             }
           }
@@ -1655,6 +1757,7 @@ export default function SceneProvider({ children }: { children: React.ReactNode 
       window.removeEventListener("resize", resize);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerleave", onPointerLeave);
+      window.removeEventListener("pointerdown", onAnyPointerDown, { capture: true });
       window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerCancel);

@@ -292,7 +292,7 @@ export default function HomeButton() {
               letterRefs.current[i] = el;
             }}
             data-particle-target
-            data-accent="140, 220, 150"
+            data-accent="48, 210, 120"
             className="absolute flex items-center justify-center text-sm text-white/70 sm:text-base"
             style={{
               width: LETTER_BOX,

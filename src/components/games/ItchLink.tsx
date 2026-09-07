@@ -1,4 +1,4 @@
-const ACCENT = "250, 92, 92";
+const ACCENT = "255, 66, 66";
 const ITCH_URL = "https://gazntyno.itch.io/";
 
 export default function ItchLink() {

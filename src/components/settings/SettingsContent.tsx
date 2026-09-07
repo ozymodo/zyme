@@ -162,7 +162,7 @@ export default function SettingsContent() {
   const { accent } = settings;
 
   return (
-    <div className="relative flex h-dvh touch-pan-y flex-col items-center gap-10 overflow-y-auto px-6 py-24 text-center">
+    <div className="scroll-page relative flex h-dvh touch-pan-y flex-col items-center gap-10 overflow-y-auto px-6 py-24 text-center short-landscape:gap-8 short-landscape:py-14">
       <div
         className="pointer-events-none absolute left-1/2 top-24 h-72 w-72 -translate-x-1/2 rounded-full opacity-25 blur-3xl"
         style={{ background: `radial-gradient(circle, rgba(${accent}, 0.5), transparent 70%)` }}
@@ -197,6 +197,17 @@ export default function SettingsContent() {
           </Row>
           <Row title="Cursor color" description="Your cursor's glow, trail, and connecting lines.">
             <ColorPicker value={settings.cursorColor} onChange={(color) => updateSettings({ cursorColor: color })} />
+          </Row>
+          <Row
+            title="Level-up colors"
+            description="Every level up recolors one of the above - accent, nodes, cursor, or the wordmark, in turn. Never the background. Picking any color yourself switches this off."
+          >
+            <Toggle
+              checked={settings.levelColors}
+              onChange={(v) => updateSettings({ levelColors: v })}
+              accent={accent}
+              label="Recolor part of the site on every level up"
+            />
           </Row>
         </Section>
 
@@ -295,6 +306,17 @@ export default function SettingsContent() {
               accent={accent}
               onChange={(v) => updateSettings({ wordmarkWeight: v })}
               formatValue={(v) => WEIGHT_LABELS[v] ?? String(v)}
+            />
+          </Row>
+          <Row
+            title="Shuffle each visit"
+            description="Draws a new word every time you open a page - the home button carries it back. Ignored while Account > Homepage text is set."
+          >
+            <Toggle
+              checked={settings.shuffleWordmark}
+              onChange={(v) => updateSettings({ shuffleWordmark: v })}
+              accent={accent}
+              label="Shuffle the landing page word each visit"
             />
           </Row>
         </Section>

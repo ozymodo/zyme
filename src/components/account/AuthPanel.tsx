@@ -14,7 +14,7 @@ import {
 import { firebaseEnabled } from "@/lib/firebase";
 import { Row, Section } from "@/components/common/Panel";
 
-const ACCENT = "210, 180, 220";
+const ACCENT = "205, 150, 235";
 
 // General sign-in/sign-up for any visitor - email/password or Google. Once
 // signed in, the Account page's profile/progress sync to Firestore under

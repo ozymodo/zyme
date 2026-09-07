@@ -102,14 +102,19 @@ export default function AnimatedTitle({
     };
     rafId = requestAnimationFrame(tick);
 
-    const onResize = () => {
+    // The cached centers are viewport coordinates (they're compared against
+    // the pointer, which is too), so a scroll invalidates them just as a
+    // resize does - on a landscape phone the page really does scroll now.
+    const invalidate = () => {
       baseCenters = [];
     };
-    window.addEventListener("resize", onResize);
+    window.addEventListener("resize", invalidate);
+    window.addEventListener("scroll", invalidate, { passive: true });
 
     return () => {
       cancelAnimationFrame(rafId);
-      window.removeEventListener("resize", onResize);
+      window.removeEventListener("resize", invalidate);
+      window.removeEventListener("scroll", invalidate);
     };
   }, [getPointer, letters, intensity, accent]);
 

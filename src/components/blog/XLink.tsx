@@ -1,4 +1,4 @@
-const ACCENT = "56, 145, 255";
+const ACCENT = "40, 128, 255";
 const X_URL = "https://x.com/gazntyno";
 
 export default function XLink() {

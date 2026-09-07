@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { DragEvent } from "react";
 import type { FeedMediaItem } from "@/components/media/MediaContent";
 
-const ACCENT = "214, 168, 68";
+const ACCENT = "240, 176, 42";
 
 function autoGrow(el: HTMLTextAreaElement | null) {
   if (!el) return;
@@ -102,7 +102,7 @@ export default function MediaEditor(props: Props) {
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex cursor-auto items-start justify-center overflow-y-auto bg-[#040705]/80 px-4 py-10 backdrop-blur-sm sm:py-16"
+      className="fixed inset-0 z-50 flex cursor-auto items-start justify-center overflow-y-auto overscroll-contain bg-[#020403]/85 px-4 py-10 backdrop-blur-sm sm:py-16"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -111,7 +111,7 @@ export default function MediaEditor(props: Props) {
       <motion.div
         layoutId={layoutId}
         onClick={(e) => e.stopPropagation()}
-        className="relative flex w-full max-w-2xl flex-col rounded-3xl border border-white/10 bg-[#0a120e]/95 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.5)] sm:p-8"
+        className="relative flex w-full max-w-2xl flex-col rounded-3xl border border-white/10 bg-[#060d09]/95 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.5)] sm:p-8"
       >
         <button
           onClick={handleCancel}

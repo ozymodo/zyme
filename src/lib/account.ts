@@ -11,6 +11,7 @@ export type AccountStats = {
   nodesCreated: number;
   settingsChanged: number;
   particlesCaught: number;
+  taps: number;
 };
 
 export type Account = {
@@ -56,6 +57,7 @@ const DEFAULT_STATS: AccountStats = {
   nodesCreated: 0,
   settingsChanged: 0,
   particlesCaught: 0,
+  taps: 0,
 };
 
 const DEFAULT_ACCOUNT: Account = {
@@ -111,6 +113,7 @@ function sanitize(raw: unknown): PersistedFields {
       nodesCreated: typeof stats.nodesCreated === "number" ? stats.nodesCreated : DEFAULT_STATS.nodesCreated,
       settingsChanged: typeof stats.settingsChanged === "number" ? stats.settingsChanged : DEFAULT_STATS.settingsChanged,
       particlesCaught: typeof stats.particlesCaught === "number" ? stats.particlesCaught : DEFAULT_STATS.particlesCaught,
+      taps: typeof stats.taps === "number" ? stats.taps : DEFAULT_STATS.taps,
     },
   };
 }
@@ -127,6 +130,9 @@ function readFromStorage(): PersistedFields {
 }
 
 function persist() {
+  // Whatever this write is for, it writes the whole cache - so any click XP
+  // waiting on its debounce is covered by it and its timer can be dropped.
+  flushPendingClicks();
   if (activeUid) {
     const db = getFirebaseDb();
     if (!db) return;
@@ -152,6 +158,11 @@ function ensureHydrated() {
 
 if (typeof window !== "undefined") {
   ensureHydrated();
+  // A tab closed (or backgrounded on mobile, where it may never come back)
+  // mid-debounce would otherwise drop the last second or so of click XP.
+  window.addEventListener("pagehide", () => {
+    if (clickPersistTimer !== null) persist();
+  });
   window.addEventListener("storage", (e) => {
     if (e.key === STORAGE_KEY && !activeUid) {
       cache = { ...readFromStorage(), pictureUrl: cache.pictureUrl };
@@ -295,12 +306,13 @@ export function awardSettingsChangeXp() {
   awardXp(5, "settings-change", 4_000, (s) => ({ ...s, settingsChanged: s.settingsChanged + 1 }));
 }
 
-// The homepage's fleeing-particle mini-game: satisfying but not trivial to
-// land (it's actively evading the cursor), so it pays out more than a
-// typical rate-limited action. Its own cooldown here is just a backstop -
-// SceneProvider already paces catches naturally via the respawn timer.
+// The homepage's fleeing-particle mini-game: the hardest thing on the site
+// to actually land (it's actively evading the cursor, and only one is out at
+// a time), so it's by far the biggest single payout - several levels' worth
+// early on. Its own cooldown here is just a backstop - SceneProvider already
+// paces catches via the respawn timer.
 export function awardParticleCatchXp() {
-  awardXp(15, "particle-catch", 3_000, (s) => ({ ...s, particlesCaught: s.particlesCaught + 1 }));
+  awardXp(150, "particle-catch", 3_000, (s) => ({ ...s, particlesCaught: s.particlesCaught + 1 }));
 }
 
 // Clicking to create a node is cheap enough to spam, so unlike the other
@@ -324,11 +336,50 @@ export function recordNodeCreated() {
   emit();
 }
 
+// Every tap or click anywhere on the site earns a little XP - poking at the
+// place is the point of it. Deliberately not rate-limited the way the awards
+// above are: a tap is a tap, and the payout is small enough that spamming it
+// is worth far less than actually playing (one gate is 250 taps' worth).
+const CLICK_XP = 1;
+// What *is* batched is the write. Every other award persists immediately,
+// which is fine at one-per-several-seconds, but a click can land many times
+// a second - and for a signed-in account each persist is a Firestore write.
+// So the XP lands in the cache (and on screen) instantly and the write
+// follows on a short trailing debounce.
+const CLICK_PERSIST_DEBOUNCE_MS = 1_500;
+let clickPersistTimer: ReturnType<typeof setTimeout> | null = null;
+
+function persistClicksSoon() {
+  if (typeof window === "undefined") {
+    persist();
+    return;
+  }
+  if (clickPersistTimer !== null) return;
+  clickPersistTimer = setTimeout(() => {
+    clickPersistTimer = null;
+    persist();
+  }, CLICK_PERSIST_DEBOUNCE_MS);
+}
+
+/** Flushes a debounced click write early - on tab-hide/unload, and whenever another award persists anyway. */
+function flushPendingClicks() {
+  if (clickPersistTimer === null) return;
+  clearTimeout(clickPersistTimer);
+  clickPersistTimer = null;
+}
+
+export function awardClickXp() {
+  ensureHydrated();
+  cache = { ...cache, xp: cache.xp + CLICK_XP, stats: { ...cache.stats, taps: cache.stats.taps + 1 } };
+  persistClicksSoon();
+  emit();
+}
+
 // Gates track their own per-gate cooldown/edge-trigger in SceneProvider (it
 // already needs that state for the cooldown-dimming visual), so by the time
 // this is called the caller has already decided the pass-through counts -
 // no extra rate-limiting needed here.
-const GATE_XP = 40;
+const GATE_XP = 250;
 
 export function awardGateXp() {
   ensureHydrated();

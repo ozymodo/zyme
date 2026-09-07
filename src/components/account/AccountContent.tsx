@@ -18,7 +18,7 @@ import { Row, Section } from "@/components/common/Panel";
 import AuthPanel from "@/components/account/AuthPanel";
 import { getAuthSnapshot, getServerAuthSnapshot, subscribeAuth } from "@/lib/auth";
 
-const ACCENT = "210, 180, 220";
+const ACCENT = "205, 150, 235";
 // Local state persists on a short debounce rather than every keystroke, so
 // typing a bio doesn't hammer localStorage - and again immediately on blur,
 // so nothing's lost if the field never sits idle long enough to fire.
@@ -33,7 +33,8 @@ const STAT_LABELS: {
     | "minutesPlayed"
     | "nodesCreated"
     | "settingsChanged"
-    | "particlesCaught";
+    | "particlesCaught"
+    | "taps";
   label: string;
 }[] = [
   { key: "posts", label: "Posts" },
@@ -44,6 +45,7 @@ const STAT_LABELS: {
   { key: "nodesCreated", label: "Nodes created" },
   { key: "settingsChanged", label: "Settings tweaked" },
   { key: "particlesCaught", label: "Particles caught" },
+  { key: "taps", label: "Taps" },
 ];
 
 export default function AccountContent() {
@@ -108,7 +110,7 @@ export default function AccountContent() {
   const { level, xp, xpIntoLevel, xpForNextLevel, progress } = levelProgress(account.xp);
 
   return (
-    <div className="relative flex h-dvh touch-pan-y flex-col items-center gap-10 overflow-y-auto px-6 py-24 text-center">
+    <div className="scroll-page relative flex h-dvh touch-pan-y flex-col items-center gap-10 overflow-y-auto px-6 py-24 text-center short-landscape:gap-8 short-landscape:py-14">
       <div
         className="pointer-events-none absolute left-1/2 top-24 h-72 w-72 -translate-x-1/2 rounded-full opacity-25 blur-3xl"
         style={{ background: `radial-gradient(circle, rgba(${ACCENT}, 0.5), transparent 70%)` }}

@@ -18,6 +18,33 @@ export const WORDMARK_WORDS = [
   "mitosis",
   "protist",
   "biofilm",
+  "evolution",
+  "technology",
+  "optimize",
+  "limitless",
+  "power",
+  "revolution",
+  "innovation",
+  "unlimited",
+  "renegade",
+  "resolution",
+  "strategy",
+  "cognition",
+  "create",
+  "sapien",
+  "ludens",
+  "tactical",
+  "ultralight",
+  "energy",
+  "gusto",
+  "knowledge",
+  "freedom",
+  "imagination",
+  "organism",
+  "human",
+  "genius",
+  "compute",
+  "primate",
 ] as const;
 
 /**
@@ -28,18 +55,28 @@ export const WORDMARK_WORDS = [
  */
 export const DEFAULT_WORDMARK = WORDMARK_WORDS[0];
 
-// Chosen once at module evaluation, so the hero title and the home button
-// read the same word for the whole page load - they share framer-motion
-// layoutIds per letter, and two different words would tear that handoff.
-const sessionWordmark = typeof window === "undefined" ? DEFAULT_WORDMARK : WORDMARK_WORDS[Math.floor(Math.random() * WORDMARK_WORDS.length)];
+// The word in play right now. Chosen once at module evaluation so the hero
+// title and the home button always read the same word - they share
+// framer-motion layoutIds per letter, and two different words at once would
+// tear that handoff. With Settings > Shuffle each visit on, it's re-rolled
+// (see shuffleDefaultWordmark) at exactly one moment: a navigation away
+// from the homepage, when the hero has already handed its letters over.
+let sessionWordmark = typeof window === "undefined" ? DEFAULT_WORDMARK : randomWord(DEFAULT_WORDMARK);
 
 // useSyncExternalStore shape, matching lib/account.ts and lib/settings.ts.
-// The value never changes after module load, so there's nothing to notify:
-// going through the store (rather than reading sessionWordmark directly in
-// render) is purely so React uses the server value for the hydration pass
-// and re-renders with the random one after, instead of flagging a mismatch.
-export function subscribeDefaultWordmark(): () => void {
-  return () => {};
+// Subscribers exist so a re-roll reaches the home button/hero; without the
+// shuffle setting on, the value never changes and nothing is ever emitted.
+const listeners = new Set<() => void>();
+
+/** A random word that isn't `avoid` - so a re-roll always visibly changes the word. */
+function randomWord(avoid: string): string {
+  const options = WORDMARK_WORDS.filter((w) => w !== avoid);
+  const pool = options.length > 0 ? options : WORDMARK_WORDS;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+export function subscribeDefaultWordmark(listener: () => void): () => void {
+  return (listeners.add(listener), () => void listeners.delete(listener));
 }
 
 export function getDefaultWordmark(): string {
@@ -48,4 +85,15 @@ export function getDefaultWordmark(): string {
 
 export function getServerDefaultWordmark(): string {
   return DEFAULT_WORDMARK;
+}
+
+/**
+ * Draws a new word (always a different one) and notifies every reader, so
+ * the home button and the hero title stay on the same word as each other
+ * while together moving on to the next one.
+ */
+export function shuffleDefaultWordmark() {
+  if (typeof window === "undefined") return;
+  sessionWordmark = randomWord(sessionWordmark);
+  for (const listener of listeners) listener();
 }

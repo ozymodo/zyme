@@ -1,9 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  --background: #060b07;
-  --foreground: #ededed;
+  /* Deep, slightly green-tinted near-black - ApplySettings overrides this
+     with Settings > Background color, so this is the pre-hydration value
+     and the fallback for anyone who never touches the setting. */
+  --background: #040605;
+  --foreground: #f2f2f2;
 }
+
+/* Short-and-wide viewports - a phone held in landscape, and the same shape
+   on any device. There simply isn't the vertical room there to fit a page
+   into one screen the way portrait does, so instead of squashing everything
+   these pages become scrollable (see the `html, body` and `.spatial-page`
+   rules below) and tighten their vertical rhythm. Deliberately not gated on
+   `pointer: coarse`: a short desktop window has the same problem and wants
+   the same answer. */
+@custom-variant short-landscape (@media (orientation: landscape) and (max-height: 620px));
 
 @theme inline {
   --color-background: var(--background);
@@ -84,7 +96,7 @@ html {
 }
 
 /* The spatial pages (Home/Games/Blog/Media) are sized to exactly fill the
-   viewport (see their `h-dvh` root) and have nothing that needs scrolling -
+   viewport (see `.spatial-page` below) and have nothing that needs scrolling -
    Account/Settings are the deliberate exception, scrolling inside their own
    `overflow-y-auto` container instead of the document. Without this, mobile
    Safari/Chrome still treat the document as draggable-to-bounce even where
@@ -95,6 +107,50 @@ body {
   height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
+}
+
+/* The shared root of every spatial page. Portrait/desktop: exactly one
+   screen, with `touch-action: none` so a dragging finger drives the scene's
+   cursor (and the homepage mini-game) instead of pulling the document
+   around. */
+.spatial-page {
+  height: 100dvh;
+  touch-action: none;
+}
+
+/* Landscape phones: the page grows past the viewport and the document
+   itself scrolls, so you can move down through the space smoothly rather
+   than reading a squashed single screen. Everything is still one gesture
+   away - `pan-y` keeps the vertical drag as a scroll while leaving taps,
+   pinch-zoom and horizontal drags (the scene cursor) alone - and pages
+   whose content still fits stay unscrollable, since `min-height` alone
+   creates no overflow. The 3D scene and its canvases are `fixed`, so they
+   stay put behind the moving content exactly as they do on desktop. */
+@media (orientation: landscape) and (max-height: 620px) {
+  html,
+  body {
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* Still no rubber-band chaining out to the browser UI, but a real
+       scroll inside the page. */
+    overscroll-behavior-y: contain;
+  }
+
+  .spatial-page {
+    height: auto;
+    min-height: 100dvh;
+    touch-action: pan-y;
+  }
+
+  /* The pages that already scroll inside themselves (Account, Settings,
+     Microbyte) keep doing exactly that - one scroll container, not two
+     nested ones fighting over the same drag. */
+  .scroll-page {
+    height: 100dvh;
+    overflow-y: auto;
+  }
 }
 
 @keyframes breathe {

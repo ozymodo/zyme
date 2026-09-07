@@ -27,6 +27,14 @@ export type Settings = {
   wordmarkFont: FontChoice;
   /** "r, g, b" - the letters shade from white down into this color, replacing the fixed white-to-emerald gradient. */
   wordmarkColor: string;
+  /** Levelling up recolors one part of the site (never the background) - see levelColorChange.
+   *  Switches itself off the moment a color is picked by hand, so a deliberate choice is never
+   *  overwritten by the next level-up. */
+  levelColors: boolean;
+  /** Re-rolls the random wordmark word on every navigation away from the homepage,
+   *  instead of once per page load. No effect while Account > Homepage text is set,
+   *  since a custom word always wins over the random one. */
+  shuffleWordmark: boolean;
   /** Scale multiplier on the wordmark's (responsive) base font size - 1 is the default size. */
   wordmarkSize: number;
   /** CSS font-weight, 100-900. */
@@ -36,11 +44,11 @@ export type Settings = {
 // Shared by the accent/node/cursor color settings below - each just needs a
 // swatch label and an "r, g, b" value.
 export const COLOR_PRESETS: ColorPreset[] = [
-  { label: "Forest", color: "140, 220, 150" },
-  { label: "Ocean", color: "80, 170, 255" },
-  { label: "Amber", color: "230, 175, 70" },
-  { label: "Violet", color: "170, 130, 255" },
-  { label: "Rose", color: "240, 110, 140" },
+  { label: "Forest", color: "48, 210, 120" },
+  { label: "Ocean", color: "48, 150, 255" },
+  { label: "Amber", color: "245, 176, 40" },
+  { label: "Violet", color: "154, 96, 255" },
+  { label: "Rose", color: "250, 78, 122" },
 ];
 
 // Background color needs its own, much darker set - the same hues as
@@ -49,26 +57,34 @@ export const COLOR_PRESETS: ColorPreset[] = [
 // bright accent swatch. Each is that preset's color scaled down to a low,
 // grey-leaning luminance.
 export const BACKGROUND_COLOR_PRESETS: ColorPreset[] = [
-  { label: "Forest", color: "8, 13, 9" },
-  { label: "Ocean", color: "5, 10, 15" },
-  { label: "Amber", color: "14, 11, 4" },
-  { label: "Violet", color: "10, 8, 15" },
-  { label: "Rose", color: "14, 7, 8" },
+  { label: "Forest", color: "4, 9, 5" },
+  { label: "Ocean", color: "3, 6, 12" },
+  { label: "Amber", color: "10, 7, 2" },
+  { label: "Violet", color: "7, 4, 12" },
+  { label: "Rose", color: "10, 3, 5" },
 ];
 
 export const DEFAULT_SETTINGS: Settings = {
-  backgroundColor: "8, 8, 8",
-  accent: "140, 220, 150",
-  nodeColor: "170, 130, 255",
-  cursorColor: "140, 220, 150",
+  backgroundColor: "4, 6, 5",
+  accent: "48, 210, 120",
+  nodeColor: "154, 96, 255",
+  cursorColor: "48, 210, 120",
   trailEffect: true,
   particleDensity: "high",
   reducedMotion: false,
   font: "mono",
   wordmarkFont: "mono",
-  // Matches Tailwind's emerald-200 at 40% - the gradient's original fixed
-  // end color, kept as the default so nothing looks different out of the box.
-  wordmarkColor: "167, 243, 208",
+  // The end of the wordmark's white-to-green gradient - a light, saturated
+  // tint of the same green the accent/cursor default to, so the hero reads
+  // as the same color family rather than a paler, greyer one.
+  wordmarkColor: "134, 245, 186",
+  // On by default - see levelColorChange. Picking any color by hand turns
+  // it off (updateSettings does that), so it only ever drives colors nobody
+  // has claimed.
+  levelColors: true,
+  // On by default: the site introduces itself with a different word every
+  // time you come back to the homepage, not just once per page load.
+  shuffleWordmark: true,
   wordmarkSize: 1,
   wordmarkWeight: 200,
 };
@@ -126,6 +142,8 @@ function sanitize(raw: unknown): Settings {
     font: isFontChoice(r.font) ? r.font : DEFAULT_SETTINGS.font,
     wordmarkFont: isFontChoice(r.wordmarkFont) ? r.wordmarkFont : DEFAULT_SETTINGS.wordmarkFont,
     wordmarkColor: sanitizeColor(r.wordmarkColor, DEFAULT_SETTINGS.wordmarkColor),
+    shuffleWordmark: typeof r.shuffleWordmark === "boolean" ? r.shuffleWordmark : DEFAULT_SETTINGS.shuffleWordmark,
+    levelColors: typeof r.levelColors === "boolean" ? r.levelColors : DEFAULT_SETTINGS.levelColors,
     wordmarkSize:
       typeof r.wordmarkSize === "number" && r.wordmarkSize >= WORDMARK_SIZE_MIN && r.wordmarkSize <= WORDMARK_SIZE_MAX
         ? r.wordmarkSize
@@ -180,9 +198,73 @@ export function getServerSettingsSnapshot(): Settings {
   return DEFAULT_SETTINGS;
 }
 
+// The color settings the level-up feature is allowed to drive - deliberately
+// every color except the background, which has to stay a near-black to work
+// at all and so is never handed to an automatic palette.
+const LEVEL_COLOR_KEYS = ["accent", "nodeColor", "cursorColor", "wordmarkColor"] as const;
+type LevelColorKey = (typeof LEVEL_COLOR_KEYS)[number];
+
+// The colors levelling up cycles through - the five Settings presets plus
+// three more, so the sequence doesn't repeat as quickly as the swatch row
+// would. Its length (8) is deliberately coprime with LEVEL_COLOR_KEYS' (4),
+// so which color lands on which aspect keeps shifting for 32 levels before
+// any pairing comes back around.
+const LEVEL_COLOR_CYCLE = [
+  "48, 210, 120", // forest
+  "48, 150, 255", // ocean
+  "245, 176, 40", // amber
+  "154, 96, 255", // violet
+  "250, 78, 122", // rose
+  "60, 225, 220", // teal
+  "255, 120, 60", // ember
+  "120, 255, 90", // lime
+];
+
+/**
+ * Which aspect changes, and to what, on reaching `level`. Level 2 is the
+ * first level-up there is, so it's step 0. Deterministic rather than random:
+ * a given level always produces the same look, and the aspect being recolored
+ * rotates so no single one keeps being overwritten.
+ */
+export function levelColorChange(level: number): { key: LevelColorKey; color: string } {
+  const step = Math.max(0, level - 2);
+  return {
+    key: LEVEL_COLOR_KEYS[step % LEVEL_COLOR_KEYS.length],
+    // Offset by one so the very first level-up doesn't hand the accent the
+    // forest green it already defaults to - a "reward" that changes nothing
+    // on screen is worse than no reward at all.
+    color: LEVEL_COLOR_CYCLE[(step + 1) % LEVEL_COLOR_CYCLE.length],
+  };
+}
+
+/**
+ * Applies a level-up's color. Deliberately not routed through
+ * updateSettings: that would both switch the feature off (its manual-choice
+ * guard) and award settings-change XP, and XP awarded by a level-up is a
+ * loop waiting to happen.
+ */
+export function applyLevelColor(level: number) {
+  ensureHydrated();
+  if (!cache.levelColors) return;
+  const { key, color } = levelColorChange(level);
+  cache = sanitize({ ...cache, [key]: color });
+  if (typeof window !== "undefined") window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
+  emit();
+}
+
+function changesAColorByHand(partial: Partial<Settings>) {
+  return LEVEL_COLOR_KEYS.some((key) => partial[key] !== undefined);
+}
+
 export function updateSettings(partial: Partial<Settings>) {
   ensureHydrated();
-  cache = sanitize({ ...cache, ...partial });
+  // Picking a color by hand beats the automatic one: the feature switches
+  // itself off rather than overwriting that choice at the next level-up.
+  // Toggling `levelColors` itself in the same call wins, so turning it back
+  // on from the Settings row isn't immediately undone.
+  const autoOff: Partial<Settings> =
+    partial.levelColors === undefined && changesAColorByHand(partial) ? { levelColors: false } : {};
+  cache = sanitize({ ...cache, ...partial, ...autoOff });
   if (typeof window !== "undefined") {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
     // Trying out a color/font/toggle/etc. earns a little XP - rate-limited

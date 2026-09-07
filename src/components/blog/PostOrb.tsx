@@ -6,7 +6,7 @@ import type { FeedPost } from "@/components/blog/BlogContent";
 import { clampedAxis, driftParams, edgeMargin, gridPosition, hashSeed } from "@/lib/orbLayout";
 import { useSceneTransition } from "@/components/scene/scene-context";
 
-const ACCENT = "56, 145, 255";
+const ACCENT = "40, 128, 255";
 
 export function orbLayout(post: FeedPost, index: number, total: number) {
   const seed = hashSeed(post.id);

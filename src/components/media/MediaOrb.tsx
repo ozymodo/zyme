@@ -6,7 +6,7 @@ import type { FeedMediaItem } from "@/components/media/MediaContent";
 import { clampedAxis, driftParams, edgeMargin, gridPosition, hashSeed, seeded } from "@/lib/orbLayout";
 import { useSceneTransition } from "@/components/scene/scene-context";
 
-const ACCENT = "214, 168, 68";
+const ACCENT = "240, 176, 42";
 
 export default function MediaOrb({
   item,

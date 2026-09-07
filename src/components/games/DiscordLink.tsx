@@ -1,4 +1,4 @@
-const ACCENT = "52, 199, 110";
+const ACCENT = "48, 210, 120";
 const DISCORD_URL = "https://discord.gg/FA6xQwryqe";
 
 export default function DiscordLink() {

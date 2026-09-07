@@ -27,7 +27,7 @@ import PostViewer from "@/components/blog/PostViewer";
 import XLink from "@/components/blog/XLink";
 import { useSceneTransition } from "@/components/scene/scene-context";
 
-const ACCENT = "56, 145, 255";
+const ACCENT = "40, 128, 255";
 const NEW_POST_LAYOUT_ID = "new-post-button";
 
 // Local posts are private to this browser (unchanged); global posts come
@@ -97,7 +97,7 @@ export default function BlogContent() {
 
   return (
     <LayoutGroup>
-      <div className="flex h-dvh touch-none flex-col px-6 py-16">
+      <div className="spatial-page flex flex-col px-6 py-16 short-landscape:py-10">
         <div className="flex flex-col items-center gap-2 text-center">
           <AnimatedTitle
             text="BLOG"
@@ -109,7 +109,7 @@ export default function BlogContent() {
         </div>
 
         <div
-          className={`relative mt-4 min-h-[65vh] flex-1 transition-opacity duration-300 ${
+          className={`relative mt-4 min-h-[65vh] flex-1 transition-opacity duration-300 short-landscape:min-h-[420px] ${
             overlay ? "pointer-events-none opacity-0" : "opacity-100"
           }`}
         >

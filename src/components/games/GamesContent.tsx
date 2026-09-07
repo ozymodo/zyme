@@ -8,8 +8,8 @@ import FreeroamButton from "@/components/games/FreeroamButton";
 import ItchLink from "@/components/games/ItchLink";
 import { useSceneTransition } from "@/components/scene/scene-context";
 
-const MICROBYTE_ACCENT = "52, 199, 110";
-const PLAYTEST_ACCENT = "196, 74, 45";
+const MICROBYTE_ACCENT = "48, 210, 120";
+const PLAYTEST_ACCENT = "214, 66, 30";
 
 function isPlainLeftClick(e: MouseEvent) {
   return e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
@@ -19,7 +19,7 @@ export default function GamesContent() {
   const { diveTo } = useSceneTransition();
 
   return (
-    <div className="flex h-dvh touch-none flex-col items-center justify-center gap-10 px-6 py-24">
+    <div className="spatial-page flex flex-col items-center justify-center gap-10 px-6 py-24 short-landscape:gap-6 short-landscape:py-14">
       <div className="flex flex-col items-center gap-2 text-center">
         <AnimatedTitle
           text="GAMES"

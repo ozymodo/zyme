@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { awardMicrobyteMinute } from "@/lib/account";
 
-const ACCENT = "52, 199, 110";
+const ACCENT = "48, 210, 120";
 const PLAYTIME_TICK_MS = 60_000;
 
 export default function MicrobytePlayer() {
@@ -70,7 +70,7 @@ export default function MicrobytePlayer() {
   }, []);
 
   return (
-    <div className="relative flex h-dvh touch-pan-y flex-col items-center gap-8 overflow-y-auto px-6 py-24">
+    <div className="scroll-page relative flex h-dvh touch-pan-y flex-col items-center gap-8 overflow-y-auto px-6 py-24 short-landscape:gap-6 short-landscape:py-12">
       <div
         className="pointer-events-none absolute top-24 h-72 w-72 rounded-full opacity-25 blur-3xl"
         style={{ background: `radial-gradient(circle, rgba(${ACCENT}, 0.5), transparent 70%)` }}

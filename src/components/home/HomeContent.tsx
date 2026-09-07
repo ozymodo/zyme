@@ -48,9 +48,9 @@ const DUST_INTERVAL_MS = 90;
 
 // Forest/natural palette: emerald (growth), moss teal (water/shade), amber (sunlight through canopy).
 const NAV_ORBS: NavOrb[] = [
-  { label: "Games", href: "/games", accent: "52, 199, 110", delay: "0s", duration: "6.5s", icon: ICONS.games },
-  { label: "Blog", href: "/blog", accent: "56, 145, 255", delay: "-2.1s", duration: "7.2s", icon: ICONS.blog },
-  { label: "Media", href: "/media", accent: "214, 168, 68", delay: "-4.4s", duration: "5.8s", icon: ICONS.media },
+  { label: "Games", href: "/games", accent: "48, 210, 120", delay: "0s", duration: "6.5s", icon: ICONS.games },
+  { label: "Blog", href: "/blog", accent: "40, 128, 255", delay: "-2.1s", duration: "7.2s", icon: ICONS.blog },
+  { label: "Media", href: "/media", accent: "240, 176, 42", delay: "-4.4s", duration: "5.8s", icon: ICONS.media },
 ];
 
 function isPlainLeftClick(e: MouseEvent) {
@@ -174,22 +174,27 @@ export default function HomeContent() {
     };
     rafId = requestAnimationFrame(tick);
 
-    const onResize = () => {
+    // The cached centers are viewport coordinates (they're compared against
+    // the pointer, which is too), so a scroll invalidates them just as a
+    // resize does - on a landscape phone the page really does scroll now.
+    const invalidate = () => {
       baseCenters = [];
     };
-    window.addEventListener("resize", onResize);
+    window.addEventListener("resize", invalidate);
+    window.addEventListener("scroll", invalidate, { passive: true });
 
     return () => {
       cancelAnimationFrame(rafId);
-      window.removeEventListener("resize", onResize);
+      window.removeEventListener("resize", invalidate);
+      window.removeEventListener("scroll", invalidate);
     };
   }, [getPointer, emitDust, wordmark]);
 
   return (
-    <div className="flex h-dvh touch-none flex-col items-center gap-14 px-6 pt-20 text-center sm:pt-28">
+    <div className="spatial-page flex flex-col items-center gap-14 px-6 pt-20 text-center sm:pt-28 short-landscape:gap-8 short-landscape:pb-14 short-landscape:pt-12">
       <AccountBadge />
       <div className="flex flex-col items-center gap-4">
-        <h1 className="wordmark-text flex items-baseline font-semibold tracking-[0.2em] drop-shadow-[0_0_25px_rgba(80,200,120,0.35)]">
+        <h1 className="wordmark-text flex items-baseline font-semibold tracking-[0.2em] drop-shadow-[0_0_25px_rgba(48,210,120,0.45)]">
           {wordmark.map((letter, i) => (
             <motion.span
               key={i}
@@ -199,8 +204,8 @@ export default function HomeContent() {
               layoutId={`home-letter-${i}`}
               transition={LETTER_TRANSITION}
               data-particle-target
-              data-accent="140, 220, 150"
-              className="inline-block whitespace-pre bg-gradient-to-b from-white to-emerald-200/40 bg-clip-text text-transparent"
+              data-accent="48, 210, 120"
+              className="inline-block whitespace-pre bg-gradient-to-b from-white to-emerald-300/45 bg-clip-text text-transparent"
             >
               {letter}
             </motion.span>
@@ -211,7 +216,7 @@ export default function HomeContent() {
         </p>
       </div>
 
-      <nav className="flex flex-wrap items-center justify-center gap-10 sm:gap-16">
+      <nav className="flex flex-wrap items-center justify-center gap-10 sm:gap-16 short-landscape:gap-8">
         {NAV_ORBS.map((orb) => (
           <Link
             key={orb.label}
@@ -223,7 +228,7 @@ export default function HomeContent() {
               e.preventDefault();
               diveTo(orb.href, e.currentTarget);
             }}
-            className="animate-breathe group relative flex h-32 w-32 items-center justify-center rounded-full border border-white/15 bg-white/5 text-sm font-medium tracking-wide text-white/80 backdrop-blur-md transition-transform duration-300 hover:scale-110 hover:text-white sm:h-36 sm:w-36"
+            className="animate-breathe group relative flex h-32 w-32 items-center justify-center rounded-full border border-white/15 bg-white/5 text-sm font-medium tracking-wide text-white/80 backdrop-blur-md transition-transform duration-300 hover:scale-110 hover:text-white sm:h-36 sm:w-36 short-landscape:h-24 short-landscape:w-24"
             style={
               {
                 animationDelay: orb.delay,

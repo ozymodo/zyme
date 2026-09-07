@@ -15,7 +15,7 @@ import { useSceneTransition } from "@/components/scene/scene-context";
 // Same purple used for "Account" everywhere else it shows up (the Utility
 // menu's sub-link, the Account page itself), so this reads as the same
 // destination.
-const ACCENT = "210, 180, 220";
+const ACCENT = "205, 150, 235";
 
 function isPlainLeftClick(e: MouseEvent) {
   return e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;

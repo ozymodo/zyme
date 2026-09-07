@@ -1,4 +1,4 @@
-const ACCENT = "214, 168, 68";
+const ACCENT = "240, 176, 42";
 
 const LINKS = [
   {

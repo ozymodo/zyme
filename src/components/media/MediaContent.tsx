@@ -29,7 +29,7 @@ import MediaViewer from "@/components/media/MediaViewer";
 import SocialLinks from "@/components/media/SocialLinks";
 import { useSceneTransition } from "@/components/scene/scene-context";
 
-const ACCENT = "214, 168, 68";
+const ACCENT = "240, 176, 42";
 const NEW_MEDIA_LAYOUT_ID = "new-media-button";
 
 // Local items are private to this browser (unchanged); global items come
@@ -97,7 +97,7 @@ export default function MediaContent() {
 
   return (
     <LayoutGroup>
-      <div className="flex h-dvh touch-none flex-col px-6 py-16">
+      <div className="spatial-page flex flex-col px-6 py-16 short-landscape:py-10">
         <div className="flex flex-col items-center gap-2 text-center">
           <AnimatedTitle
             text="MEDIA"
@@ -108,7 +108,7 @@ export default function MediaContent() {
           <p className="text-sm text-white/40">Snapshots drift here — click one to open it.</p>
         </div>
 
-        <div className="relative mt-4 min-h-[65vh] flex-1">
+        <div className="relative mt-4 min-h-[65vh] flex-1 short-landscape:min-h-[420px]">
           {items.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center">
               <p className="max-w-xs text-center text-sm text-white/30">

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google";
 import ApplySettings from "@/components/settings/ApplySettings";
+import LevelColors from "@/components/account/LevelColors";
 import SceneProvider from "@/components/scene/SceneProvider";
 import "./globals.css";
 
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <ApplySettings />
+        <LevelColors />
         <SceneProvider>{children}</SceneProvider>
       </body>
     </html>

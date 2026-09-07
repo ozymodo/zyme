@@ -14,8 +14,8 @@ type SubAction = {
 
 // Placeholder destinations for now — more sub-buttons will land here later.
 const SUB_ACTIONS: SubAction[] = [
-  { label: "Settings", href: "/settings", accent: "170, 180, 210" },
-  { label: "Account", href: "/account", accent: "210, 180, 220" },
+  { label: "Settings", href: "/settings", accent: "150, 165, 215" },
+  { label: "Account", href: "/account", accent: "205, 150, 235" },
 ];
 
 // Sub-buttons stay open briefly after the pointer leaves so crossing the gap
