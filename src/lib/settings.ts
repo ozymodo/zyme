@@ -204,37 +204,61 @@ export function getServerSettingsSnapshot(): Settings {
 const LEVEL_COLOR_KEYS = ["accent", "nodeColor", "cursorColor", "wordmarkColor"] as const;
 type LevelColorKey = (typeof LEVEL_COLOR_KEYS)[number];
 
-// The colors levelling up cycles through - the five Settings presets plus
-// three more, so the sequence doesn't repeat as quickly as the swatch row
-// would. Its length (8) is deliberately coprime with LEVEL_COLOR_KEYS' (4),
-// so which color lands on which aspect keeps shifting for 32 levels before
-// any pairing comes back around.
-const LEVEL_COLOR_CYCLE = [
-  "48, 210, 120", // forest
-  "48, 150, 255", // ocean
-  "245, 176, 40", // amber
-  "154, 96, 255", // violet
-  "250, 78, 122", // rose
-  "60, 225, 220", // teal
-  "255, 120, 60", // ember
-  "120, 255, 90", // lime
-];
+// A random color for a level-up. Generated in HSL rather than by picking
+// three raw bytes: a uniform RGB roll gives muddy browns and near-blacks
+// about as often as anything else, and these colors have to work as the
+// accent/particle/cursor/wordmark tint over a near-black background. So the
+// hue is the only fully random part - saturation and lightness stay in the
+// bright, vivid band the hand-picked presets already live in.
+const LEVEL_COLOR_MIN_SATURATION = 0.7;
+const LEVEL_COLOR_MAX_SATURATION = 1;
+// Floored at 0.58 rather than the ~0.5 the presets sit at, because a random
+// hue can land on pure blue, which is inherently the darkest fully-saturated
+// color there is - at 0.52 it comes out too dim to read against the
+// near-black background. This keeps the dimmest possible roll comfortably
+// visible without washing the bright hues out.
+const LEVEL_COLOR_MIN_LIGHTNESS = 0.58;
+const LEVEL_COLOR_MAX_LIGHTNESS = 0.72;
+
+function hslToColor(h: number, s: number, l: number): string {
+  const chroma = (1 - Math.abs(2 * l - 1)) * s;
+  const sector = h / 60;
+  const x = chroma * (1 - Math.abs((sector % 2) - 1));
+  const [r1, g1, b1] =
+    sector < 1 ? [chroma, x, 0]
+    : sector < 2 ? [x, chroma, 0]
+    : sector < 3 ? [0, chroma, x]
+    : sector < 4 ? [0, x, chroma]
+    : sector < 5 ? [x, 0, chroma]
+    : [chroma, 0, x];
+  const m = l - chroma / 2;
+  const to255 = (v: number) => Math.round((v + m) * 255);
+  return `${to255(r1)}, ${to255(g1)}, ${to255(b1)}`;
+}
+
+function randomLevelColor(): string {
+  return hslToColor(
+    Math.random() * 360,
+    LEVEL_COLOR_MIN_SATURATION + Math.random() * (LEVEL_COLOR_MAX_SATURATION - LEVEL_COLOR_MIN_SATURATION),
+    LEVEL_COLOR_MIN_LIGHTNESS + Math.random() * (LEVEL_COLOR_MAX_LIGHTNESS - LEVEL_COLOR_MIN_LIGHTNESS),
+  );
+}
+
+// The aspect recolored by the last level-up, so the next one picks a
+// different one - otherwise a run of random picks can land on the accent
+// three times running and the site reads as barely changing.
+let lastLevelColorKey: LevelColorKey | null = null;
 
 /**
- * Which aspect changes, and to what, on reaching `level`. Level 2 is the
- * first level-up there is, so it's step 0. Deterministic rather than random:
- * a given level always produces the same look, and the aspect being recolored
- * rotates so no single one keeps being overwritten.
+ * Which aspect changes, and to what - a fresh random color every time, so no
+ * two level-ups look alike and nobody can predict what they'll get. Only the
+ * aspect is constrained, and only to avoid repeating the one just changed.
  */
-export function levelColorChange(level: number): { key: LevelColorKey; color: string } {
-  const step = Math.max(0, level - 2);
-  return {
-    key: LEVEL_COLOR_KEYS[step % LEVEL_COLOR_KEYS.length],
-    // Offset by one so the very first level-up doesn't hand the accent the
-    // forest green it already defaults to - a "reward" that changes nothing
-    // on screen is worse than no reward at all.
-    color: LEVEL_COLOR_CYCLE[(step + 1) % LEVEL_COLOR_CYCLE.length],
-  };
+export function levelColorChange(): { key: LevelColorKey; color: string } {
+  const options = LEVEL_COLOR_KEYS.filter((key) => key !== lastLevelColorKey);
+  const key = options[Math.floor(Math.random() * options.length)];
+  lastLevelColorKey = key;
+  return { key, color: randomLevelColor() };
 }
 
 /**
@@ -243,10 +267,10 @@ export function levelColorChange(level: number): { key: LevelColorKey; color: st
  * guard) and award settings-change XP, and XP awarded by a level-up is a
  * loop waiting to happen.
  */
-export function applyLevelColor(level: number) {
+export function applyLevelColor() {
   ensureHydrated();
   if (!cache.levelColors) return;
-  const { key, color } = levelColorChange(level);
+  const { key, color } = levelColorChange();
   cache = sanitize({ ...cache, [key]: color });
   if (typeof window !== "undefined") window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
   emit();

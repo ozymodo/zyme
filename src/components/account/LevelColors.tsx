@@ -7,7 +7,7 @@ import { applyLevelColor } from "@/lib/settings";
 /**
  * Renders nothing - it just watches the account's level and recolors one
  * part of the site each time it goes up (Settings > Level-up colors; see
- * levelColorChange for what changes and to what).
+ * levelColorChange for what changes and to what - a random color each time).
  *
  * Only a rise *during this session* counts: the level is derived from stored
  * XP, so on every load the first reading is simply remembered as the
@@ -27,7 +27,7 @@ export default function LevelColors() {
     // applyLevelColor is itself a no-op while the setting is off, so the
     // level is tracked either way and turning the toggle back on doesn't
     // retroactively fire for levels gained while it was off.
-    if (previous !== null && level > previous) applyLevelColor(level);
+    if (previous !== null && level > previous) applyLevelColor();
   }, [level]);
 
   return null;

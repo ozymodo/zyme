@@ -200,7 +200,7 @@ export default function SettingsContent() {
           </Row>
           <Row
             title="Level-up colors"
-            description="Every level up recolors one of the above - accent, nodes, cursor, or the wordmark, in turn. Never the background. Picking any color yourself switches this off."
+            description="Every level up throws a random color at one of the above - accent, nodes, cursor, or the wordmark. Never the background. Picking any color yourself switches this off."
           >
             <Toggle
               checked={settings.levelColors}
